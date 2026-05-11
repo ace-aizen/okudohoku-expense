@@ -22,7 +22,7 @@ exports.handler = async () => {
         statusOptions: APP_CONFIG.statusOptions,
         dashboard: computeDashboard([], APP_CONFIG.defaultCategories),
         recentExpenses: [],
-        debug: { applicantCount: 0, categoryCount: 0, ruleCount: 0, fallback: true },
+        debug: { applicantCount: 0, categoryCount: 0, ruleCount: 0, fallback: true, appsScriptConfigured: false, googleConfigured: false },
       });
     }
 
@@ -61,6 +61,8 @@ exports.handler = async () => {
         categoryCount: categories.length,
         ruleCount: rules.length,
         fallback: false,
+        appsScriptConfigured: false,
+        googleConfigured: true,
       },
     });
   } catch (error) {

@@ -63,42 +63,82 @@ async function loadBootstrap() {
   setLoading(true);
   try {
     const response = await fetch('/.netlify/functions/bootstrap');
-    const data = await response.json();
+    const data = await safeJson_(response);
+    if (!response.ok || !data || data.ok === false) {
+      const message = (data && data.error) ? data.error : '初期データの読み込みに失敗しました。';
+      showToast(message);
+      // Allow the UI to remain usable even when bootstrap fails (e.g. missing env vars).
+      const fallback = buildLocalFallbackBootstrap_();
+      state.bootstrap = fallback;
+      hydrateApp(fallback, { warning: message });
+      return;
+    }
+
     state.bootstrap = data;
     hydrateApp(data);
   } catch (error) {
-    showToast('初期データの読み込みに失敗しました。');
+    const message = (error && error.message) ? error.message : '初期データの読み込みに失敗しました。';
+    showToast(message);
+    const fallback = buildLocalFallbackBootstrap_();
+    state.bootstrap = fallback;
+    hydrateApp(fallback, { warning: message });
   } finally {
     setLoading(false);
   }
 }
 
-function hydrateApp(data) {
-  document.getElementById('app-title').textContent = data.appTitle;
-  document.getElementById('project-name').value = data.defaultProjectName || '';
-  document.getElementById('bootstrap-debug').textContent =
-    `読込: 申請者 ${data.debug?.applicantCount || data.applicants.length}件 / 費目 ${data.debug?.categoryCount || data.categories.length}件 / ルール ${data.debug?.ruleCount || data.rules.length}件`;
+function hydrateApp(data, opts = {}) {
+  try {
+    const safe = {
+      appTitle: data && data.appTitle ? String(data.appTitle) : '奥道北 経費管理',
+      defaultProjectName: data && data.defaultProjectName ? String(data.defaultProjectName) : '',
+      applicants: Array.isArray(data && data.applicants) ? data.applicants : [],
+      categories: Array.isArray(data && data.categories) ? data.categories : [],
+      rules: Array.isArray(data && data.rules) ? data.rules : [],
+      statusOptions: Array.isArray(data && data.statusOptions) ? data.statusOptions : ['下書き', '一次判定済み', '要確認', '確定', '集計反映済み'],
+      dashboard: data && data.dashboard ? data.dashboard : null,
+      recentExpenses: Array.isArray(data && data.recentExpenses) ? data.recentExpenses : [],
+      debug: data && data.debug ? data.debug : null,
+    };
 
-  const applicantOptions = normalizeApplicantOptions(data.applicants);
-  const categoryOptions = normalizeCategoryOptions(data.categories);
-  populateSelect(document.getElementById('applicant-id'), applicantOptions);
-  populateSelect(document.getElementById('category-manual'), [{ value: '', label: '自動候補を使う' }, ...categoryOptions]);
-  populateSelect(document.getElementById('review-status'), data.statusOptions.map((item) => ({ value: item, label: item })));
-  document.getElementById('review-status').value = '一次判定済み';
-  document.getElementById('applicant-id').value = applicantOptions[0]?.value || '';
-  renderDashboard(data.dashboard);
-  renderRecentExpenses(data.recentExpenses);
-  renderRuleSuggestion();
+    document.getElementById('app-title').textContent = safe.appTitle;
+    document.getElementById('project-name').value = safe.defaultProjectName || '';
+
+    const applicantOptions = normalizeApplicantOptions(safe.applicants);
+    const categoryOptions = normalizeCategoryOptions(safe.categories);
+    populateSelect(document.getElementById('applicant-id'), [{ value: '', label: '選択してください' }, ...applicantOptions]);
+    populateSelect(document.getElementById('category-manual'), [{ value: '', label: '自動候補を使う' }, ...categoryOptions]);
+    populateSelect(document.getElementById('review-status'), safe.statusOptions.map((item) => ({ value: item, label: item })));
+    document.getElementById('review-status').value = safe.statusOptions.includes('一次判定済み') ? '一次判定済み' : (safe.statusOptions[0] || '');
+
+    // Default applicant: keep empty until user selects (prevents accidental mis-submit).
+    document.getElementById('applicant-id').value = '';
+
+    const applicantCount = safe.debug && safe.debug.applicantCount != null ? safe.debug.applicantCount : safe.applicants.length;
+    const categoryCount = safe.debug && safe.debug.categoryCount != null ? safe.debug.categoryCount : safe.categories.length;
+    const ruleCount = safe.debug && safe.debug.ruleCount != null ? safe.debug.ruleCount : safe.rules.length;
+    const warning = opts && opts.warning ? ` / 注意: ${opts.warning}` : '';
+    document.getElementById('bootstrap-debug').textContent =
+      `読込: 申請者 ${applicantCount}件 / 費目 ${categoryCount}件 / ルール ${ruleCount}件${warning}`;
+
+    renderDashboard(safe.dashboard);
+    renderRecentExpenses(safe.recentExpenses);
+    renderRuleSuggestion();
+  } catch (error) {
+    showToast(error && error.message ? error.message : '画面の初期化に失敗しました。');
+  }
 }
 
 function populateSelect(element, options) {
   element.innerHTML = '';
+  const fragment = document.createDocumentFragment();
   options.forEach((option) => {
     const opt = document.createElement('option');
     opt.value = option.value;
     opt.textContent = option.label;
-    element.appendChild(opt);
+    fragment.appendChild(opt);
   });
+  element.appendChild(fragment);
 }
 
 function normalizeApplicantOptions(applicants) {
@@ -354,4 +394,35 @@ function buildPastedFileName(mimeType) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const extension = mimeType && mimeType.includes('png') ? 'png' : 'jpg';
   return `screenshot-${stamp}.${extension}`;
+}
+
+async function safeJson_(response) {
+  try {
+    return await response.json();
+  } catch (_) {
+    const text = await response.text().catch(() => '');
+    return { ok: false, error: text ? `JSON ではありません: ${text.slice(0, 120)}` : 'JSON ではありません。' };
+  }
+}
+
+function buildLocalFallbackBootstrap_() {
+  return {
+    ok: true,
+    appTitle: '奥道北 経費管理',
+    defaultProjectName: '奥道北プロジェクト',
+    totalBudget: 5400000,
+    applicants: [{ applicant_id: 'ITO', applicant_name: '伊東' }, { applicant_id: 'SAKASHITA', applicant_name: '坂下' }],
+    categories: [
+      { category_code: 'AIR', category_name: '航空券' }, { category_code: 'TRANSPORT', category_name: '交通費' },
+      { category_code: 'HOTEL', category_name: '宿泊費' }, { category_code: 'CAR', category_name: '車両費' },
+      { category_code: 'STAY', category_name: '滞在費' }, { category_code: 'MEAL', category_name: '会食費' },
+      { category_code: 'ENTERTAINMENT', category_name: '接待費' }, { category_code: 'EVENT', category_name: 'イベント参加費' },
+      { category_code: 'OTHER', category_name: 'その他' },
+    ],
+    rules: [],
+    statusOptions: ['下書き', '一次判定済み', '要確認', '確定', '集計反映済み'],
+    dashboard: { totalBudget: 5400000, totalSpent: 0, totalRemaining: 5400000, currentMonthSpent: 0, unconfirmedCount: 0, categoryBreakdown: [] },
+    recentExpenses: [],
+    debug: { fallback: true, applicantCount: 0, categoryCount: 0, ruleCount: 0 },
+  };
 }
