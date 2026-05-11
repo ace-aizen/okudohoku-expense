@@ -13,7 +13,7 @@
           <p class="eyebrow">Oku-Dohoku Expense Desk</p>
           <h1 id="app-title">奥道北 経費管理</h1>
           <p class="hero-copy">写真・スクショ・PDFをアップロードすると、文字を読み取って日付・金額・支払先・費目候補を自動入力します。</p>
-          <p class="debug-copy" id="bootstrap-debug"></p>
+          <p class="debug-copy" id="bootstrap-debug" hidden></p>
         </div>
         <button class="ghost-button" id="refresh-button" type="button">集計を更新</button>
       </header>
@@ -70,7 +70,10 @@
             </div>
 
             <div class="ocr-result">
-              <p class="ocr-title">読み取り結果</p>
+              <div class="ocr-head">
+                <p class="ocr-title">読み取り結果</p>
+                <button class="link-button" id="open-detail" type="button" hidden>詳細</button>
+              </div>
               <p class="ocr-copy" id="ocr-result-summary">ファイルを入れると、ここに読み取り結果が表示されます。</p>
             </div>
 
@@ -105,6 +108,16 @@
     </div>
 
     <div id="toast" class="toast" aria-live="polite"></div>
+    <div id="detail-modal" class="modal" hidden>
+      <div class="modal-backdrop" data-close="1"></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="詳細">
+        <div class="modal-head">
+          <strong>詳細</strong>
+          <button class="ghost-button" id="close-detail" type="button">閉じる</button>
+        </div>
+        <pre id="detail-content" class="detail-pre"></pre>
+      </div>
+    </div>
     <script src="/app.js" defer></script>
   </body>
   </html>
