@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奥道北 経費管理</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Oku-Dohoku Expense Desk</p>
+          <h1 id="app-title">奥道北 経費管理</h1>
+          <p class="hero-copy">写真・スクショ・PDFをアップロードすると、文字を読み取って日付・金額・支払先・費目候補を自動入力します。</p>
+          <p class="debug-copy" id="bootstrap-debug"></p>
+        </div>
+        <button class="ghost-button" id="refresh-button" type="button">集計を更新</button>
+      </header>
+
+      <section class="metrics">
+        <article class="metric-card accent-budget"><span class="metric-label">総予算</span><strong class="metric-value" id="metric-budget">-</strong></article>
+        <article class="metric-card accent-spent"><span class="metric-label">累計支出額</span><strong class="metric-value" id="metric-spent">-</strong></article>
+        <article class="metric-card accent-remaining"><span class="metric-label">残予算</span><strong class="metric-value" id="metric-remaining">-</strong></article>
+        <article class="metric-card accent-month"><span class="metric-label">当月支出額</span><strong class="metric-value" id="metric-month">-</strong></article>
+        <article class="metric-card accent-alert"><span class="metric-label">未確定件数</span><strong class="metric-value" id="metric-unconfirmed">-</strong></article>
+      </section>
+
+      <main class="layout">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>経費を登録</h2>
+            <p>Netlify 側で UI を安定させ、Google Drive / Sheets へ保存します。</p>
+          </div>
+
+          <form id="expense-form" class="expense-form">
+            <div class="grid two">
+              <label class="field"><span>申請者</span><select id="applicant-id" required></select></label>
+              <label class="field"><span>利用日</span><input id="use-date" type="date" required></label>
+            </div>
+
+            <div class="grid two">
+              <label class="field"><span>金額</span><input id="amount-source" type="number" min="0" step="1" required></label>
+              <label class="field"><span>支払先・店名</span><input id="vendor-name-source" type="text"></label>
+            </div>
+
+            <div class="grid two">
+              <label class="field"><span>案件名</span><input id="project-name" type="text"></label>
+              <label class="field"><span>費目を手動で確定</span><select id="category-manual"></select></label>
+            </div>
+
+            <label class="field"><span>利用目的</span><textarea id="purpose-text" rows="2"></textarea></label>
+            <label class="field"><span>参加者メモ</span><textarea id="attendees-text" rows="2"></textarea></label>
+            <label class="field"><span>備考</span><textarea id="note-text" rows="2"></textarea></label>
+
+            <div class="status-row">
+              <div class="suggestion-box"><span class="suggestion-label">費目候補</span><strong id="rule-suggestion">未判定</strong></div>
+              <div class="suggestion-box"><span class="suggestion-label">読み取り状況</span><strong id="analysis-status">未解析</strong></div>
+              <label class="field compact"><span>状態</span><select id="review-status"></select></label>
+            </div>
+
+            <div class="upload-card" id="drop-zone">
+              <input id="file-input" type="file" accept="image/*,.pdf" hidden>
+              <div class="upload-inner">
+                <p class="upload-title">証憑をアップロード</p>
+                <p class="upload-copy">クリック、ドラッグ&ドロップ、またはスクショを貼り付け</p>
+                <button class="solid-button" id="select-file-button" type="button">ファイルを選ぶ</button>
+                <p class="upload-file" id="selected-file-name">未選択</p>
+              </div>
+            </div>
+
+            <div class="ocr-result">
+              <p class="ocr-title">読み取り結果</p>
+              <p class="ocr-copy" id="ocr-result-summary">ファイルを入れると、ここに読み取り結果が表示されます。</p>
+            </div>
+
+            <div class="form-actions">
+              <button class="primary-button" id="submit-button" type="submit">Drive に保存して登録</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="stack">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>費目別の支出</h2>
+              <p>残額確認を最優先にしつつ、内訳も下段で見られるようにしています。</p>
+            </div>
+            <div id="category-breakdown" class="breakdown"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>最近の経費</h2>
+              <p>直近の登録内容をすぐ確認できます。</p>
+            </div>
+            <div class="table-wrap">
+              <table class="recent-table">
+                <thead><tr><th>利用日</th><th>申請者</th><th>支払先</th><th>費目</th><th>金額</th></tr></thead>
+                <tbody id="recent-expenses-body"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" aria-live="polite"></div>
+    <script src="/app.js" defer></script>
+  </body>
+  </html>
+
