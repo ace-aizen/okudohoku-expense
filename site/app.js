@@ -20,6 +20,12 @@ function bindEvents() {
     if (file) setSelectedFile(file);
   });
 
+  const useDateInput = document.getElementById('use-date');
+  useDateInput.addEventListener('blur', () => {
+    const normalized = normalizeUserDate_(useDateInput.value);
+    if (normalized) useDateInput.value = normalized;
+  });
+
   ['vendor-name-source', 'purpose-text', 'category-manual'].forEach((id) => {
     const el = document.getElementById(id);
     el.addEventListener('input', renderRuleSuggestion);
@@ -248,7 +254,7 @@ function applyAnalysisToForm(result) {
     result.amount ? `金額: ${formatCurrency(result.amount)}` : '',
     result.suggestedCategoryName ? `費目候補: ${result.suggestedCategoryName}` : '',
   ].filter(Boolean).join('\n') || '十分な情報を読み取れませんでした。必要な項目を手入力してください。';
-  if (result.useDate) document.getElementById('use-date').value = result.useDate;
+  if (result.useDate) document.getElementById('use-date').value = normalizeUserDate_(result.useDate) || result.useDate;
   if (result.amount) document.getElementById('amount-source').value = result.amount;
   if (result.vendorName) document.getElementById('vendor-name-source').value = result.vendorName;
   if (result.summary) document.getElementById('purpose-text').value = result.summary;
@@ -276,9 +282,14 @@ async function onSubmit(event) {
     return;
   }
   const fileData = await ensureFileData();
+  const useDateNormalized = normalizeUserDate_(document.getElementById('use-date').value);
+  if (!useDateNormalized) {
+    showToast('利用日は YYYY-MM-DD で入力してください。');
+    return;
+  }
   const payload = {
     applicantId: document.getElementById('applicant-id').value,
-    useDate: document.getElementById('use-date').value,
+    useDate: useDateNormalized,
     amountSource: document.getElementById('amount-source').value,
     vendorNameSource: document.getElementById('vendor-name-source').value,
     categoryManual: document.getElementById('category-manual').value,
@@ -425,4 +436,32 @@ function buildLocalFallbackBootstrap_() {
     recentExpenses: [],
     debug: { fallback: true, applicantCount: 0, categoryCount: 0, ruleCount: 0 },
   };
+}
+
+function normalizeUserDate_(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  // Accept: YYYY-MM-DD / YYYY/MM/DD / YYYY.MM.DD / YYYY年M月D日
+  const cleaned = raw
+    .replace(/[.\uFF0E]/g, '/')
+    .replace(/年/g, '/')
+    .replace(/月/g, '/')
+    .replace(/日/g, '')
+    .replace(/-/g, '/')
+    .replace(/\s+/g, '');
+
+  const match = cleaned.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (!match) return '';
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 2000 || year > 2100) return '';
+  if (month < 1 || month > 12) return '';
+  if (day < 1 || day > 31) return '';
+
+  const mm = String(month).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  return `${year}-${mm}-${dd}`;
 }
