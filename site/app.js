@@ -4,7 +4,6 @@ const state = {
   selectedFileData: null,
   analysis: null,
   toastTimer: null,
-  lastDetail: '',
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,10 +25,6 @@ function bindEvents() {
     const normalized = normalizeUserDate_(useDateInput.value);
     if (normalized) useDateInput.value = normalized;
   });
-
-  document.getElementById('open-detail').addEventListener('click', openDetailModal_);
-  document.getElementById('close-detail').addEventListener('click', closeDetailModal_);
-  document.querySelector('#detail-modal .modal-backdrop').addEventListener('click', closeDetailModal_);
 
   ['vendor-name-source', 'purpose-text', 'category-manual'].forEach((id) => {
     const el = document.getElementById(id);
@@ -78,7 +73,6 @@ async function loadBootstrap() {
     if (!response.ok || !data || data.ok === false) {
       const message = (data && data.error) ? data.error : '初期データの読み込みに失敗しました。';
       showToast(message);
-      setDetail_(message);
       // Allow the UI to remain usable even when bootstrap fails (e.g. missing env vars).
       const fallback = buildLocalFallbackBootstrap_();
       state.bootstrap = fallback;
@@ -91,7 +85,6 @@ async function loadBootstrap() {
   } catch (error) {
     const message = (error && error.message) ? error.message : '初期データの読み込みに失敗しました。';
     showToast(message);
-    setDetail_(message);
     const fallback = buildLocalFallbackBootstrap_();
     state.bootstrap = fallback;
     hydrateApp(fallback, { warning: message });
@@ -131,16 +124,14 @@ function hydrateApp(data, opts = {}) {
     const categoryCount = safe.debug && safe.debug.categoryCount != null ? safe.debug.categoryCount : safe.categories.length;
     const ruleCount = safe.debug && safe.debug.ruleCount != null ? safe.debug.ruleCount : safe.rules.length;
     const debugEl = document.getElementById('bootstrap-debug');
-    const warning = opts && opts.warning ? ` / 注意: ${truncateForUi_(opts.warning)}` : '';
-    debugEl.textContent = `読込: 申請者 ${applicantCount}件 / 費目 ${categoryCount}件 / ルール ${ruleCount}件${warning}`;
-    debugEl.hidden = !warning;
+    // Keep debug hidden in production UI (errors are shown via toast instead).
+    debugEl.hidden = true;
 
     renderDashboard(safe.dashboard);
     renderRecentExpenses(safe.recentExpenses);
     renderRuleSuggestion();
   } catch (error) {
     showToast(error && error.message ? error.message : '画面の初期化に失敗しました。');
-    setDetail_(error && error.stack ? error.stack : String(error || ''));
   }
 }
 
@@ -247,10 +238,9 @@ async function analyzeSelectedFile(file) {
     state.analysis = result;
     applyAnalysisToForm(result);
   } catch (error) {
-    setDetail_(error && error.message ? error.message : String(error || ''));
     document.getElementById('analysis-status').textContent = '読み取り失敗';
     document.getElementById('ocr-result-summary').textContent = buildUiError_(error);
-    showToast('読み取りに失敗しました。必要なら「詳細」を開いてください。');
+    showToast('読み取りに失敗しました。');
   } finally {
     setLoading(false);
   }
@@ -448,37 +438,14 @@ function buildLocalFallbackBootstrap_() {
   };
 }
 
-function setDetail_(detailText) {
-  const text = String(detailText || '').trim();
-  state.lastDetail = text;
-  const open = document.getElementById('open-detail');
-  open.hidden = !text;
-  if (text) {
-    document.getElementById('detail-content').textContent = text;
-  }
-}
-
-function openDetailModal_() {
-  if (!state.lastDetail) return;
-  const modal = document.getElementById('detail-modal');
-  modal.hidden = false;
-}
-
-function closeDetailModal_() {
-  const modal = document.getElementById('detail-modal');
-  modal.hidden = true;
-}
-
 function truncateForUi_(message) {
   const text = String(message || '').replace(/\s+/g, ' ').trim();
-  return text.length > 90 ? `${text.slice(0, 90)}...` : text;
+  return text.length > 120 ? `${text.slice(0, 120)}...` : text;
 }
 
 function buildUiError_(error) {
   const raw = error && error.message ? String(error.message) : String(error || '読み取りに失敗しました。');
-  const collapsed = truncateForUi_(raw);
-  setDetail_(raw);
-  return `${collapsed}\n\n（必要なら右上の「詳細」で全文を確認できます）`;
+  return `${truncateForUi_(raw)}\n（詳細は管理者に共有してください）`;
 }
 
 function normalizeUserDate_(value) {

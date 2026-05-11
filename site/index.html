@@ -70,10 +70,7 @@
             </div>
 
             <div class="ocr-result">
-              <div class="ocr-head">
-                <p class="ocr-title">読み取り結果</p>
-                <button class="link-button" id="open-detail" type="button" hidden>詳細</button>
-              </div>
+              <p class="ocr-title">読み取り結果</p>
               <p class="ocr-copy" id="ocr-result-summary">ファイルを入れると、ここに読み取り結果が表示されます。</p>
             </div>
 
@@ -108,16 +105,6 @@
     </div>
 
     <div id="toast" class="toast" aria-live="polite"></div>
-    <div id="detail-modal" class="modal" hidden>
-      <div class="modal-backdrop" data-close="1"></div>
-      <div class="modal-card" role="dialog" aria-modal="true" aria-label="詳細">
-        <div class="modal-head">
-          <strong>詳細</strong>
-          <button class="ghost-button" id="close-detail" type="button">閉じる</button>
-        </div>
-        <pre id="detail-content" class="detail-pre"></pre>
-      </div>
-    </div>
     <script src="/app.js" defer></script>
   </body>
   </html>
